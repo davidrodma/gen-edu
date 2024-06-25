@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+//migrate SQL: npx prisma migrate dev --name init
+//migrate mongodb prisma: yarn prisma generate, primeira vez: yarn prisma db push
+//migrate mongodb pacote externo mongo-migrate-ts (não é padrão prisma):
+  //yarn mongo-migrate init (somente no caso que existir a configuração migrations.json)
+  //yarn mongo-migrate create nome_do_migration (cria migration)
+  //yarn mongo-migrate up (executa o migrate)
+  //yarn mongo-migrate down -l (desfaz o último migrate) 
+  //Obj. (só funciona em js compiliado)
+  
+datasource db {
+  //provider = "sqlite"
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  //id Int @id @default(autoincrement())
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  email    String @unique
+  password String
+  name String
+  role Role @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status Int @default(1)
+  
+}
+
+enum OwnerBotUser {
+  USER
+  SYSTEM
+}
+
+model AutoIncrement {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  name String @unique
+  count Int @default(0)
+}
+
+model ConfigGroup{
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  title String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status Int @default(1)
+  configs Config[]
+}
+
+model Config{
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  name  String @unique
+  title String
+  description String
+  type String
+  configGroup  ConfigGroup @relation(fields: [configGroupId], references: [id])
+  configGroupId String @db.ObjectId
+  value String
+  jsonOptions Json? 
+  classAdd String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status Int @default(1)
+}

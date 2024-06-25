@@ -1,0 +1,264 @@
+import { Request, Response } from 'express'
+import ConfigController from '../controllers/ConfigController'
+import { ProfileGenerator } from './ProfileGenerator'
+import NationalityNameService from '../services/NationalityNameService'
+
+const got = require('got')
+const sleep = require('./sleep')
+
+const BASE_API = 'https://api.mail.tm/'
+
+export default class MailTm {
+  static TOKEN = ''
+  static async request(endpoint: String, options: any) {
+    const { params = undefined, method = 'GET', token = '' } = options
+    const isGet = method.toLocaleLowerCase() === 'get'
+    const TOKEN = token ? token : MailTm.TOKEN
+    const URL = `${BASE_API}${endpoint}`
+    const { body } = await got(URL, {
+      method: method,
+      json: !isGet ? params : undefined,
+      searchParams: isGet ? params : undefined,
+      headers: {
+        Authorization: TOKEN ? `Bearer ${TOKEN}` : undefined,
+        Accept: 'application/json',
+      },
+      responseType: 'json',
+    }).catch((e: Error | any) => {
+      console.log(e?.response?.body)
+      let message = e?.response?.body?.detail || ''
+      message = message || e?.response?.body?.message || ''
+      message = message || (e?.response?.body ? JSON.stringify(e.response.body) : '')
+      message = message || e?.message || ''
+      message = message || e
+      throw `ERRO vindo do serviço de EMAIL: ${message}`
+    })
+    return body
+  }
+
+  static async createAccountRequest(req: Request, res: Response) {
+    try {
+      const { address = '', password = '' } = req.body
+      if (!address || !password) {
+        throw 'email and password required'
+      }
+      const result = await MailTm.createAccount(address, password)
+      return res.json(result)
+    } catch (e: Error | any) {
+      return res.json({
+        error: e.message || e,
+      })
+    }
+  }
+
+  static async createTokenRequest(req: Request, res: Response) {
+    try {
+      const { address, password } = req.body
+      if (!address || !password) {
+        throw 'address and password required'
+      }
+      const result = await MailTm.createToken(address, password)
+      return res.json(result)
+    } catch (e: Error | any) {
+      return res.json({
+        error: e.message || e,
+      })
+    }
+  }
+
+  static async createToken(address: string, password: string) {
+    const body = await MailTm.request('token', {
+      params: {
+        address,
+        password,
+      },
+      method: 'POST',
+    })
+    return body
+  }
+
+  static async createAccount(address: string, password: string) {
+    const body = await MailTm.request('accounts', {
+      params: {
+        address,
+        password,
+      },
+      method: 'POST',
+    })
+    return body
+  }
+
+  static async getAccount(id: number | string, token = '') {
+    const body = await MailTm.request(`accounts/${id}`, { token })
+    return body
+  }
+
+  static async deleteAccount(id: number | string, token = '') {
+    const body = await MailTm.request(`accounts/${id}`, {
+      method: 'DELETE',
+      token,
+    })
+    return body
+  }
+
+  static async me(token = '') {
+    const body = await MailTm.request(`me`, { token })
+    return body
+  }
+
+  static async domains(page = 1) {
+    const body = await MailTm.request('domains', {
+      params: {
+        page,
+      },
+    })
+    return body
+  }
+
+  static async getDomain(id: number | string, token = '') {
+    const body = await MailTm.request(`domains/${id}`, { token })
+    return body
+  }
+
+  static async messages(page = 1, token: string = ''): Promise<any> {
+    const body = await MailTm.request('messages', {
+      params: {
+        page,
+      },
+      token,
+    })
+    return body
+  }
+
+  static async getMessage(id: number | string, token: string = '') {
+    const body = await MailTm.request(`messages/${id}`, { token })
+    return body
+  }
+
+  static async deleteMessage(id: number | string, token: string = '') {
+    const body = await MailTm.request(`messages/${id}`, {
+      method: 'DELETE',
+      token,
+    })
+    return body
+  }
+
+  static async seenMessage(id: number | string, token: string = '') {
+    const body = await MailTm.request(`messages/${id}`, {
+      method: 'PATCH',
+      token,
+    })
+    return body
+  }
+
+  static async getSourceMessage(id: number | string, token: string = '') {
+    const body = await MailTm.request(`sources/${id}`, { token })
+    return body
+  }
+
+  static async emailGenerator() {
+    try {
+      const generator = new ProfileGenerator()
+      const domains = await MailTm.domains()
+      const domain = domains[0]?.domain
+      let attemps = 2
+      let account = null
+      let token = ''
+      do {
+        attemps--
+        const generate = await NationalityNameService.generate('male', 'BR')
+        const username = generate.username
+        const address = `${username}@${domain}`
+        const password = generator.password({ length: 10 })
+        account = await MailTm.createAccount(address, password).catch(error => {
+          const message_error = `Erro createAccount Email ${address}: ${error.message || error}`
+          console.log(message_error)
+          return {
+            error: message_error,
+          }
+        })
+        console.log('account->', account)
+        if (account.error) {
+          if (attemps <= 0) {
+            throw account.error
+          }
+        } else {
+          const createToken = await MailTm.createToken(address, password).catch(error => {
+            const message_error = `Erro createToken Email ${address}: ${error.message || error}`
+            console.log(message_error)
+            return {
+              error: message_error,
+            }
+          })
+          if (createToken.error) {
+            if (attemps <= 0) {
+              throw createToken.error
+            }
+          } else {
+            token = createToken.token
+            attemps = 0
+          }
+        }
+      } while (attemps > 0)
+      return { account, token, orderEmail: { account, token } }
+    } catch (err: Error | any) {
+      return { error: err.message || err }
+    }
+  }
+
+  static async getCode(account: any, token: string) {
+    let {
+      checkMessage = {} as any,
+      emailReceived = {} as any,
+      verificationCode = '',
+      timeout = 45,
+      sleepSeconds = 2,
+    } = {}
+    try {
+      const config = await ConfigController.getConfigValue(`timeout-sms`)
+      timeout = config ? parseInt(config) : timeout
+      let { loop = true, i = 0 } = {}
+      do {
+        checkMessage = await MailTm.messages(1, token).catch(error => {
+          return {
+            error: `Erro checkMessage do envio do SMS: ${error.message || error}`,
+          }
+        })
+        console.log('checkMessage', checkMessage)
+        if (checkMessage && !checkMessage?.error && checkMessage[0]) {
+          emailReceived = checkMessage[0]
+          const subject = emailReceived?.subject.toLocaleLowerCase()
+          if (subject?.includes('is your instagram code')) {
+            const arrMessage = subject.split(' ')
+            verificationCode = arrMessage[0]
+          }
+        }
+        if (verificationCode) {
+          console.log(`Código ${verificationCode} recebido com sucesso!`)
+          loop = false
+          MailTm.deleteAccount(account.id, token)
+        } else {
+          if (checkMessage.error) {
+            console.log(checkMessage.error)
+          }
+          i++
+          if (i < timeout / sleepSeconds) {
+            console.log(`Código ainda não recebido ${i * sleepSeconds}/${timeout}`)
+            await sleep(sleepSeconds)
+          } else {
+            console.log(`Código não recebido ${i * sleepSeconds}/${timeout}, TIMEOUT`)
+            loop = false
+            MailTm.deleteAccount(account.id, token)
+          }
+        }
+      } while (loop)
+      if (!verificationCode) {
+        throw `Código EMAIL não recebido para a conta id ${account.id}`
+      }
+      checkMessage = { ...checkMessage, verificationCode, emailReceived }
+      return checkMessage
+    } catch (err: Error | any) {
+      return { error: err.message || err }
+    }
+  }
+}
