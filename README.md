@@ -1,2 +1,2 @@
-# gen-teaching-material-ai
+# GenEdu
 Generation of teaching material by Artificial Intelligence
