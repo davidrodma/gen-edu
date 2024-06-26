@@ -9,9 +9,17 @@ import { UserModule } from "./modules/user/user.module"
 import { ConfigModule } from "./modules/config/config.module"
 import { ApiService } from "./modules/api/services/api.service"
 import { ApiModule } from "./modules/api/api.module"
+import { TopicModule } from "./modules/topic/topic.module"
 
 @Module({
-  imports: [PrismaModule, AuthModule, UserModule, ConfigModule, ApiModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    UserModule,
+    ConfigModule,
+    ApiModule,
+    TopicModule,
+  ],
   controllers: [AppController],
   providers: [
     AppService,

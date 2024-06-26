@@ -72,3 +72,27 @@ model Config{
   updatedAt DateTime @updatedAt
   status Int @default(1)
 }
+
+model Topic{
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  subject String
+  language String
+  duration Int
+  sizeBytes Int
+  file String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status Int @default(0)
+  contexts Context[]
+}
+
+model Context{
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  description String
+  type String
+  topic  Topic @relation(fields: [topicId], references: [id])
+  topicId String @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status Int @default(0)
+}
