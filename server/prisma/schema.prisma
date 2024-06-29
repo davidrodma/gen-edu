@@ -77,9 +77,9 @@ model Topic{
   id String @id @default(auto()) @map("_id") @db.ObjectId
   subject String
   language String
-  duration Int
-  sizeBytes Int
-  file String
+  duration Int?
+  sizeBytes Int?
+  file String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   status Int @default(0)

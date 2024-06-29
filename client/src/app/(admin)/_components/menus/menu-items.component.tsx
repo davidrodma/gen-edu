@@ -62,20 +62,8 @@ export const MenuItems: Menu[] = [
         icon: <IntegrationIcon />,
         items: [
           {
-            title: "Creation",
-            link: _routes.domains,
-          },
-          {
-            title: "Submissions",
-            link: _routes.smmServices,
-          },
-          {
-            title: "Materials",
-            link: _routes.botUsers,
-          },
-          {
-            title: "Transcripts",
-            link: _routes.domains,
+            title: "Topics",
+            link: _routes.topics,
           },
         ],
       },

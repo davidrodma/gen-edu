@@ -12,7 +12,7 @@ export const _routes = {
   proxies: `${root}/proxies`,
   domains: `${root}/domains`,
   smmServices: `${root}/smm-services/services`,
-  scrapes: `${root}/scrapes/requests`,
-  scrapesLinks: `${root}/scrapes/links`,
+  topics: `${root}/generation/topics`,
+  contexts: `${root}/generation/topics/contexts`,
   qualityTests: `${root}/quality-tests`,
 } as const
